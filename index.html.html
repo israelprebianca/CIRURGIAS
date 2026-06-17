@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cirurgias — Dr. Israel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#f7f6f2; --surface:#fff; --surface2:#f1f0ec;
+  --border:#e2e0d8; --border2:#c8c6bc;
+  --text:#1a1a18; --text2:#5a5955; --text3:#9a9893;
+  --accent:#185FA5; --accent-bg:#e6f1fb; --accent-text:#0c447c;
+  --ok:#0F6E56; --ok-bg:#E1F5EE; --ok-border:#9FE1CB;
+  --warn:#854F0B; --warn-bg:#FAEEDA; --warn-border:#FAC775;
+  --err:#993C1D; --err-bg:#FAECE7; --err-border:#f5c4b3;
+  --r:10px; --rs:6px;
+}
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); font-size:15px; line-height:1.5; min-height:100vh; }
+
+.header { background:var(--surface); border-bottom:1px solid var(--border); padding:0 1.5rem; display:flex; align-items:center; justify-content:space-between; height:60px; position:sticky; top:0; z-index:100; gap:12px; flex-wrap:wrap; }
+.hbrand { display:flex; align-items:center; gap:10px; }
+.hicon { width:34px; height:34px; background:var(--accent-bg); border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.hicon svg { width:18px; height:18px; stroke:var(--accent); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.htitle { font-size:14px; font-weight:600; }
+.hsub { font-size:11px; color:var(--text3); }
+.hactions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+.sbadge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:500; border:1px solid; white-space:nowrap; }
+.sbadge svg { width:12px; height:12px; stroke:currentColor; fill:none; stroke-width:2.5; }
+.s-ok   { background:var(--ok-bg);   color:var(--ok);   border-color:var(--ok-border); }
+.s-warn { background:var(--warn-bg); color:var(--warn); border-color:var(--warn-border); }
+.s-err  { background:var(--err-bg);  color:var(--err);  border-color:var(--err-border); }
+
+.layout { display:grid; grid-template-columns:1fr 340px; min-height:calc(100vh - 60px); }
+.main { padding:1.5rem; border-right:1px solid var(--border); }
+.sidebar { padding:1.25rem; background:var(--surface); overflow-y:auto; max-height:calc(100vh - 60px); position:sticky; top:60px; }
+
+.tabs { display:flex; gap:4px; margin-bottom:1.25rem; background:var(--surface2); padding:4px; border-radius:var(--r); width:fit-content; }
+.tab { padding:6px 14px; border-radius:7px; font-size:13px; font-weight:500; cursor:pointer; border:none; background:transparent; color:var(--text2); transition:all .15s; }
+.tab.active { background:var(--surface); color:var(--text); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:1.25rem; margin-bottom:1rem; }
+.ctitle { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); margin-bottom:.875rem; display:flex; align-items:center; gap:7px; }
+.ctitle svg { width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2; }
+
+.field { margin-bottom:.875rem; }
+.field:last-child { margin-bottom:0; }
+label { display:block; font-size:12px; font-weight:500; color:var(--text2); margin-bottom:4px; }
+input[type=text],input[type=date],input[type=url],select,textarea {
+  width:100%; padding:8px 11px; border:1px solid var(--border); border-radius:var(--rs);
+  font-size:14px; font-family:inherit; background:var(--surface); color:var(--text); outline:none; transition:border-color .15s;
+}
+input:focus,select:focus,textarea:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(24,95,165,.1); }
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:.875rem; }
+
+.sw { position:relative; }
+.si { position:absolute; left:10px; top:50%; transform:translateY(-50%); pointer-events:none; }
+.si svg { width:13px; height:13px; stroke:var(--text3); fill:none; stroke-width:2; }
+.sw input { padding-left:30px; }
+.dd { position:absolute; top:calc(100% + 3px); left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--rs); box-shadow:0 8px 24px rgba(0,0,0,.12); max-height:260px; overflow-y:auto; z-index:300; display:none; }
+.dd.open { display:block; }
+.di { padding:8px 11px; cursor:pointer; border-bottom:1px solid var(--border); }
+.di:last-child { border-bottom:none; }
+.di:hover { background:var(--accent-bg); }
+.di-cod { font-size:11px; color:var(--text3); font-family:monospace; }
+.di-nom { font-size:13px; color:var(--text); }
+.di-val { font-size:12px; color:var(--ok); font-weight:500; }
+
+.pl { display:flex; flex-direction:column; gap:7px; margin-top:.875rem; }
+.pi { display:flex; align-items:flex-start; gap:9px; padding:9px 11px; background:var(--accent-bg); border:1px solid #b5d4f4; border-radius:var(--rs); }
+.pi-info { flex:1; min-width:0; }
+.pi-cod { font-size:11px; color:var(--accent-text); font-family:monospace; }
+.pi-nom { font-size:13px; color:var(--text); }
+.pi-val { font-size:12px; color:var(--ok); font-weight:600; }
+.pi-rm { background:none; border:none; cursor:pointer; color:var(--text3); padding:1px; border-radius:3px; flex-shrink:0; }
+.pi-rm:hover { background:var(--err-bg); color:var(--err); }
+.pi-rm svg { width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2; }
+
+.trow { display:flex; align-items:center; justify-content:space-between; padding:9px 11px; background:var(--surface2); border-radius:var(--rs); margin-top:7px; }
+.tlabel { font-size:13px; color:var(--text2); font-weight:500; }
+.tval { font-size:16px; font-weight:700; color:var(--ok); }
+
+.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:var(--rs); font-size:13px; font-weight:500; cursor:pointer; border:1px solid; transition:all .15s; font-family:inherit; white-space:nowrap; }
+.btn svg { width:14px; height:14px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.bp { background:var(--accent); color:#fff; border-color:var(--accent); }
+.bp:hover { background:#0c447c; }
+.bo { background:transparent; color:var(--text); border-color:var(--border2); }
+.bo:hover { background:var(--surface2); }
+.bs { background:var(--ok); color:#fff; border-color:var(--ok); }
+.bs:hover { background:#085041; }
+.bw { background:var(--warn-bg); color:var(--warn); border-color:var(--warn-border); }
+.bw:hover { background:#faeeda; }
+.bd { background:transparent; color:var(--err); border-color:var(--err-border); }
+.bd:hover { background:var(--err-bg); }
+.bsm { padding:5px 11px; font-size:12px; }
+.btn:disabled { opacity:.45; pointer-events:none; }
+.factions { display:flex; gap:9px; margin-top:1.25rem; flex-wrap:wrap; }
+
+.stitle { font-size:11px; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:.06em; margin-bottom:.875rem; display:flex; align-items:center; justify-content:space-between; }
+.scnt { background:var(--accent-bg); color:var(--accent-text); font-size:11px; font-weight:700; padding:2px 7px; border-radius:10px; }
+.sempty { text-align:center; padding:1.5rem 1rem; color:var(--text3); font-size:13px; }
+.sempty svg { width:28px; height:28px; stroke:var(--border2); fill:none; stroke-width:1.5; display:block; margin:0 auto 7px; }
+
+.hi { background:var(--surface2); border:1px solid var(--border); border-radius:var(--rs); padding:9px 11px; margin-bottom:7px; }
+.hi-date { font-size:11px; color:var(--text3); margin-bottom:2px; }
+.hi-pat { font-size:13px; font-weight:600; }
+.hi-pr { font-size:12px; color:var(--text2); margin-top:1px; }
+.hi-foot { display:flex; align-items:center; justify-content:space-between; margin-top:5px; }
+.hi-val { font-size:12px; color:var(--ok); font-weight:600; }
+.hi-sync { font-size:11px; }
+.sy { color:var(--ok); } .lo { color:var(--warn); }
+.hd { background:none; border:none; cursor:pointer; color:var(--text3); padding:0; }
+.hd:hover { color:var(--err); }
+.hd svg { width:13px; height:13px; stroke:currentColor; fill:none; stroke-width:2; }
+
+.stot { background:var(--ok-bg); border:1px solid var(--ok-border); border-radius:var(--rs); padding:9px 11px; margin-bottom:.875rem; display:flex; align-items:center; justify-content:space-between; }
+.stot-l { font-size:12px; color:var(--ok); font-weight:500; }
+.stot-v { font-size:15px; font-weight:700; color:var(--ok); }
+.sacts { margin-top:.875rem; display:flex; flex-direction:column; gap:7px; }
+
+.htable { width:100%; border-collapse:collapse; font-size:13px; }
+.htable th { text-align:left; padding:7px 9px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text3); border-bottom:1px solid var(--border); font-weight:600; }
+.htable td { padding:9px; border-bottom:1px solid var(--border); vertical-align:top; }
+.htable tr:last-child td { border-bottom:none; }
+.htable tr:hover td { background:var(--surface2); }
+.badge { display:inline-block; padding:2px 7px; border-radius:9px; font-size:11px; font-weight:600; }
+.bg { background:var(--ok-bg); color:var(--ok); }
+.bw2 { background:var(--warn-bg); color:var(--warn); }
+
+/* MODAL */
+.moverlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:500; display:flex; align-items:center; justify-content:center; padding:1rem; }
+.moverlay.hidden { display:none; }
+.modal { background:var(--surface); border-radius:var(--r); padding:1.75rem; width:100%; max-width:540px; max-height:90vh; overflow-y:auto; }
+.mtitle { font-size:16px; font-weight:600; margin-bottom:.375rem; }
+.msub { font-size:13px; color:var(--text2); margin-bottom:1.25rem; line-height:1.6; }
+.mstep { display:flex; gap:11px; margin-bottom:.875rem; font-size:13px; color:var(--text2); line-height:1.6; }
+.mnum { width:22px; height:22px; background:var(--accent-bg); color:var(--accent-text); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0; margin-top:1px; }
+.mnum svg { width:11px; height:11px; stroke:currentColor; fill:none; stroke-width:2.5; }
+.mstep strong { color:var(--text); }
+.mstep code { background:var(--surface2); padding:1px 5px; border-radius:3px; font-size:11px; font-family:monospace; color:var(--accent-text); word-break:break-all; }
+.codebox { position:relative; background:var(--surface2); border:1px solid var(--border); border-radius:var(--rs); padding:10px 12px 10px 12px; font-family:monospace; font-size:11px; color:var(--text2); line-height:1.7; margin-bottom:.875rem; white-space:pre-wrap; word-break:break-all; }
+.copybtn { position:absolute; top:8px; right:8px; }
+.divider { height:1px; background:var(--border); margin:.875rem 0; }
+.macts { display:flex; gap:8px; justify-content:flex-end; margin-top:1rem; flex-wrap:wrap; }
+
+.alerta { border-radius:var(--rs); padding:10px 12px; font-size:13px; margin-bottom:.875rem; display:flex; gap:9px; align-items:flex-start; }
+.alerta svg { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:2; flex-shrink:0; margin-top:1px; }
+.a-warn { background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-border); }
+.a-ok   { background:var(--ok-bg);   color:var(--ok);   border:1px solid var(--ok-border); }
+.a-err  { background:var(--err-bg);  color:var(--err);  border:1px solid var(--err-border); }
+
+.toast { position:fixed; bottom:20px; right:20px; background:var(--text); color:#fff; padding:11px 16px; border-radius:var(--rs); font-size:13px; font-weight:500; z-index:999; transform:translateY(50px); opacity:0; transition:all .22s ease; pointer-events:none; display:flex; align-items:center; gap:8px; max-width:300px; }
+.toast.show { transform:translateY(0); opacity:1; }
+.toast svg { width:14px; height:14px; stroke:#4ade80; fill:none; stroke-width:2.5; flex-shrink:0; }
+.toast.err svg { stroke:#f87171; }
+.toast.wrn svg { stroke:#fbbf24; }
+
+@media(max-width:860px){ .layout{grid-template-columns:1fr;} .sidebar{position:static;max-height:none;border-top:1px solid var(--border);} .row2{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="hbrand">
+    <div class="hicon"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg></div>
+    <div><div class="htitle">Registro de Cirurgias</div><div class="hsub">Dr. Israel Prebianca — HMNSL</div></div>
+  </div>
+  <div class="hactions">
+    <span class="sbadge s-warn" id="sync-badge">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span id="sync-txt">Sheets não configurado</span>
+    </span>
+    <button class="btn bo bsm" onclick="abrirModal()">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+      Configurar Sheets
+    </button>
+    <button class="btn bo bsm" onclick="exportExcel()">
+      <svg viewBox="0 0 24 24"><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+      Excel
+    </button>
+  </div>
+</header>
+
+<div class="layout">
+<main class="main">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('form',this)">Nova Cirurgia</button>
+    <button class="tab" onclick="switchTab('hist',this)">Histórico</button>
+  </div>
+
+  <div id="tab-form">
+    <div class="card">
+      <div class="ctitle"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Dados da Cirurgia</div>
+      <div class="row2">
+        <div class="field"><label>Data *</label><input type="date" id="f-data"></div>
+        <div class="field"><label>Médico *</label><input type="text" id="f-med" value="Dr. Israel Prebianca"></div>
+      </div>
+      <div class="field"><label>Paciente *</label><input type="text" id="f-pac" placeholder="Nome completo"></div>
+      <div class="row2">
+        <div class="field"><label>Convênio</label><input type="text" id="f-conv" placeholder="Ex: Unimed, Particular…"></div>
+        <div class="field"><label>Prontuário</label><input type="text" id="f-pron" placeholder="Nº (opcional)"></div>
+      </div>
+      <div class="field"><label>Observações</label><input type="text" id="f-obs" placeholder="(opcional)"></div>
+    </div>
+
+    <div class="card">
+      <div class="ctitle"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg> Procedimentos</div>
+      <div class="field">
+        <label>Buscar por código ou nome</label>
+        <div class="sw">
+          <span class="si"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+          <input type="text" id="psearch" placeholder="Digite código ou nome…" oninput="filtrar()" onfocus="filtrar()" autocomplete="off">
+          <div class="dd" id="pdd"></div>
+        </div>
+      </div>
+      <div class="pl" id="pl"></div>
+      <div class="trow" id="trow" style="display:none">
+        <span class="tlabel">Total desta cirurgia</span>
+        <span class="tval" id="tval">R$ 0,00</span>
+      </div>
+    </div>
+
+    <div class="factions">
+      <button class="btn bp" id="btn-salvar" onclick="salvar()">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Salvar Cirurgia
+      </button>
+      <button class="btn bo" onclick="limpar()">
+        <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+        Limpar
+      </button>
+    </div>
+  </div>
+
+  <div id="tab-hist" style="display:none">
+    <div class="card">
+      <div class="ctitle"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Todas as cirurgias</div>
+      <div id="histtbl"></div>
+    </div>
+  </div>
+</main>
+
+<aside class="sidebar">
+  <div class="stitle">Salvas <span class="scnt" id="scnt">0</span></div>
+  <div class="stot" id="stot" style="display:none">
+    <span class="stot-l">Total geral</span>
+    <span class="stot-v" id="stot-v">R$ 0,00</span>
+  </div>
+  <div id="slist"></div>
+  <div class="sacts">
+    <button class="btn bs" onclick="exportExcel()">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+      Exportar Excel
+    </button>
+    <button class="btn bw bsm" id="btn-pend" style="display:none" onclick="syncPend()">
+      <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
+      Sincronizar pendentes
+    </button>
+    <button class="btn bd bsm" onclick="limparTudo()">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+      Limpar tudo
+    </button>
+  </div>
+</aside>
+</div>
+
+<!-- MODAL CONFIG -->
+<div class="moverlay hidden" id="modal">
+<div class="modal">
+  <div class="mtitle">Conectar ao Google Sheets</div>
+  <div class="msub">Configure uma vez — cada cirurgia será enviada automaticamente para sua planilha.</div>
+
+  <div id="alerta-conn"></div>
+
+  <div class="mstep"><div class="mnum">1</div><div>Acesse <a href="https://sheets.google.com" target="_blank" style="color:var(--accent)">sheets.google.com</a>, crie uma planilha nova e deixe aberta.</div></div>
+  <div class="mstep"><div class="mnum">2</div><div>No menu da planilha: <strong>Extensões → Apps Script</strong>. Apague todo o código existente e cole o código abaixo.</div></div>
+
+  <div class="codebox" id="appsscript-code">function doPost(e) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ss.getSheetByName("Cirurgias");
+    if (!sh) {
+      sh = ss.insertSheet("Cirurgias");
+      sh.appendRow(["Data","Paciente","Médico","Convênio","Prontuário",
+                    "Código","Procedimento","Valor","Total","Observações","Enviado em"]);
+    }
+    var d = JSON.parse(e.postData.contents);
+    d.procs.forEach(function(p, i) {
+      sh.appendRow([
+        d.data, d.paciente, d.medico, d.convenio||"", d.prontuario||"",
+        p.cod, p.nome, p.val||0,
+        i===0 ? d.total : "",
+        i===0 ? d.obs||"" : "",
+        new Date().toLocaleString("pt-BR")
+      ]);
+    });
+    return ContentService
+      .createTextOutput(JSON.stringify({ok:true}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ok:false, erro: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</div>
+  <button class="btn bo bsm copybtn" style="margin-bottom:.875rem" onclick="copiarCodigo()">
+    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+    Copiar código
+  </button>
+
+  <div class="mstep"><div class="mnum">3</div><div>Clique em <strong>Salvar</strong> (ícone de disquete), depois em <strong>Implantar → Nova implantação</strong>.</div></div>
+  <div class="mstep"><div class="mnum">4</div><div>Em "Selecionar tipo" escolha <strong>App da Web</strong>. Em "Executar como" deixe <strong>Minha conta</strong>. Em "Quem tem acesso" escolha <strong>Qualquer pessoa</strong>. Clique em <strong>Implantar</strong> e <strong>autorize</strong> quando solicitado.</div></div>
+  <div class="mstep"><div class="mnum">5</div><div>Copie a <strong>URL da implantação</strong> (começa com <code>https://script.google.com/macros/s/</code>) e cole abaixo.</div></div>
+
+  <div class="alerta a-warn">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <div><strong>Importante:</strong> se já tinha uma implantação anterior, crie uma <em>nova</em> implantação após colar o código novo. URLs antigas não funcionam com o código atualizado.</div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="field">
+    <label>URL da implantação *</label>
+    <input type="url" id="cfg-url" placeholder="https://script.google.com/macros/s/…/exec">
+  </div>
+  <div class="macts">
+    <button class="btn bo" onclick="fecharModal()">Cancelar</button>
+    <button class="btn bw" onclick="testar()">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Testar conexão
+    </button>
+    <button class="btn bp" onclick="salvarCfg()">Salvar</button>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toast-msg"></span>
+</div>
+
+<!-- iframe oculto para envio sem CORS -->
+<iframe name="sheets-iframe" style="display:none"></iframe>
+
+<script>
+const PROCS=[
+  {cod:"04.08.02.001-6",nome:"AMPUTAÇÃO / DESARTICULAÇÃO DE MÃO E PUNHO",val:null},
+  {cod:"04.08.02.002-4",nome:"AMPUTAÇÃO / DESARTICULAÇÃO DE MEMBROS SUPERIORES",val:null},
+  {cod:"04.08.05.001-2",nome:"AMPUTAÇÃO / DESARTICULAÇÃO DE MEMBROS INFERIORES",val:null},
+  {cod:"04.08.06.004-2",nome:"AMPUTAÇÃO / DESARTICULAÇÃO DE DEDO",val:null},
+  {cod:"04.08.05.002-0",nome:"AMPUTAÇÃO / DESARTICULAÇÃO DE PE E TARSO",val:null},
+  {cod:"04.08.05.003-9",nome:"ARTRODESE DE MEDIA/GRANDES ARTICULAÇÕES MEMBRO INFERIOR",val:null},
+  {cod:"04.08.02.003-2",nome:"ARTRODESE DE MÉDIAS/GRANDES ARTICULAÇÕES MEMBRO SUPERIOR",val:null},
+  {cod:"04.08.06.005-0",nome:"ARTRODESE DE PEQUENAS ARTICULAÇÕES",val:null},
+  {cod:"04.08.02.005-9",nome:"ARTROPLASTIA DE CABEÇA DO RÁDIO",val:null},
+  {cod:"04.08.06.006-9",nome:"ARTROPLASTIA DE RESSECÇÃO MÉDIA/GRANDE ARTICULAÇÃO",val:null},
+  {cod:"04.08.06.007-7",nome:"ARTROPLASTIA DE RESSECÇÃO PEQUENAS ARTICULAÇÕES",val:null},
+  {cod:"04.08.01.007-0",nome:"DESARTICULACAO DA ARTICULACAO ESCAPULO-UMERAL",val:null},
+  {cod:"04.08.06.012-3",nome:"EXPLORAÇÃO ARTICULAR C/S SINOVECTOMIA MÉDIAS/GRANDES ARTICULAÇÕES",val:null},
+  {cod:"04.08.06.013-1",nome:"EXPLORAÇÃO ARTICULAR C/S SINOVECTOMIA PEQUENAS ARTICULAÇÕES",val:null},
+  {cod:"04.08.06.014-0",nome:"FASCIECTOMIA",val:null},
+  {cod:"04.08.05.008-0",nome:"FASCIOTOMIA DE MEMBROS INFERIORES",val:null},
+  {cod:"04.08.02.010-5",nome:"FASCIOTOMIA DE MEMBROS SUPERIORES",val:null},
+  {cod:"04.08.05.009-8",nome:"INSTALAÇÃO DE TRAÇÃO ESQUELETICA MEMBRO INFERIOR",val:1500},
+  {cod:"04.08.02.011-3",nome:"INSTALACAO DE TRAÇÃO ESQUELÉTICA MEMBRO SUPERIOR",val:500},
+  {cod:"04.08.05.01.11-0",nome:"PATELECTOMIA TOTAL OU PARCIAL",val:1000},
+  {cod:"04.08.05.011-0",nome:"QUADRICEPSPLASTIA",val:1500},
+  {cod:"04.08.02.012-1",nome:"REALINHAMENTO MECANISMO EXTENSOR DEDOS DA MÃO",val:500},
+  {cod:"04.08.05.012-8",nome:"REALINHAMENTO MECANISMO EXTENSOR DO JOELHO",val:1000},
+  {cod:"04.08.02.013-0",nome:"RECONSTRUÇÃO CAPSULO-LIGAMENTAR DE COTOVELO PUNHO",val:1500},
+  {cod:"04.08.05.014-4",nome:"RECONSTRUÇÃO DE LIGAMENTO DO TORNOZELO",val:1000},
+  {cod:"04.08.02.014-8",nome:"RECONSTRUÇÃO POLIA TENDINOSA DOS DEDOS DA MÃO",val:1000},
+  {cod:"04.08.05.013-6",nome:"RECONSTRUÇÃO DE TENDÃO PATELAR/QUADRICIPITAL",val:1000},
+  {cod:"04.08.05.015-2",nome:"RECONSTRUÇÃO LIGAMENTAR EXTRA-ARTICULAR DO JOELHO",val:1000},
+  {cod:"04.08.05.020-9",nome:"REDUÇÃO METATARSIANOS",val:500},
+  {cod:"04.08.05.019-5",nome:"REDUÇÃO INTERFALANGIANA DO PÉ",val:500},
+  {cod:"04.08.02.015-6",nome:"REDUÇÃO INCRUENTA FRATURA/LESÃO FISARIA COTOVELO",val:500},
+  {cod:"04.08.02.016-4",nome:"REDUÇAO PROXIMAL DO ÚMERO",val:1000},
+  {cod:"04.08.02.017-2",nome:"REDUÇÃO NO PUNHO",val:500},
+  {cod:"04.08.02.018-0",nome:"REDUÇÃO MONTEGGIA OU DE GALEAZZI",val:500},
+  {cod:"04.08.05.021-7",nome:"REDUÇÃO DO TORNOZELO",val:500},
+  {cod:"04.08.02.019-9",nome:"REDUÇÃO INCRUENTA FRATURA DIÁFISE DO ÚMERO",val:500},
+  {cod:"04.08.02.020-2",nome:"REDUÇÃO INCRUENTA FRATURA DIAFISARIA ANTEBRAÇO",val:500},
+  {cod:"04.08.05.022-5",nome:"REDUÇÃO DISTAL DA TIBIA C/S FRATURA DA FIBULA",val:500},
+  {cod:"04.08.05.023-3",nome:"REDUÇÃO PROXIMAL DO FEMUR",val:1000},
+  {cod:"04.08.02.021-0",nome:"REDUÇÃO METACARPIANOS",val:500},
+  {cod:"04.08.05.024-1",nome:"REDUÇÃO OSSOS DO TARSO",val:500},
+  {cod:"04.08.01.012-6",nome:"REDUÇÃO DA CINTURA ESCAPULAR",val:1000},
+  {cod:"04.08.05.025-0",nome:"REDUÇÃO LESÃO FISARIA DO JOELHO",val:500},
+  {cod:"04.08.02.022-9",nome:"REDUÇÃO DO COTOVELO",val:500},
+  {cod:"04.08.04.018-1",nome:"REDUÇÃO CONGENITA COXOFEMORAL",val:1000},
+  {cod:"04.08.04.019-0",nome:"REDUÇÃO COXOFEMORAL TRAUMÁTICA/PÓS-ARTROPLASTIA",val:1000},
+  {cod:"04.08.05.027-6",nome:"REDUÇÃO FEMURO-PATELAR",val:500},
+  {cod:"04.08.01.013-4",nome:"REDUÇÃO ESCÁPULO-UMERAL",val:500},
+  {cod:"04.08.02.024-5",nome:"REDUÇÃO LUXACAO NO PUNHO",val:500},
+  {cod:"04.08.05.029-2",nome:"REDUÇÃO TARSO-METATARSICA",val:500},
+  {cod:"04.08.05.026-8",nome:"REDUÇÃO LUXAÇÃO DO JOELHO",val:500},
+  {cod:"04.08.04.020-3",nome:"REDUÇÃO INCRUENTA ANEL PÉLVICO",val:1000},
+  {cod:"04.08.05.028-4",nome:"REDUÇÃO FRATURA/LUXAÇÃO SUBALAR E INTRATARSICA",val:500},
+  {cod:"04.08.05.031-4",nome:"REIMPLANTE DO TERCO MEDIO DA PERNA ATE O PE",val:1500},
+  {cod:"04.08.06.020-4",nome:"REINSERÇÃO MUSCULAR",val:500},
+  {cod:"04.08.05.032-2",nome:"REPARO DE BAINHA TENDINIOSA AO NIVEL DO TORNOZELO",val:500},
+  {cod:"04.08.06.022-0",nome:"RESSECÇÃO DE EXOSTOSE",val:500},
+  {cod:"04.08.02.009-1",nome:"RESSECÇÃO DO OLECRANO E/OU CABEÇA DO RÁDIO",val:1000},
+  {cod:"04.08.06.030-1",nome:"RESSECÇÃO MUSCULAR",val:500},
+  {cod:"04.08.06.031-0",nome:"RESSECÇÃO SIMPLES DE TUMOR ÓSSEO/PARTES MOLES",val:500},
+  {cod:"04.08.06.032-8",nome:"RETIRADA DE CORPO ESTRANHO INTRA-ARTICULAR",val:500},
+  {cod:"04.08.06.033-6",nome:"RETIRADA DE CORPO ESTRANHO INTRA-OSSEO",val:1000},
+  {cod:"04.08.04.021-1",nome:"RETIRADA DE ENXERTO AUTÓGENO DE ILÍACO",val:500},
+  {cod:"04.08.06.034-4",nome:"RETIRADA DE ESPAÇADORES/OUTROS MATERIAIS",val:500},
+  {cod:"04.08.06.045-0",nome:"TENOMIORRAFIA",val:500},
+  {cod:"04.08.06.046-8",nome:"TENOMIOTOMIA/DESONSERÇÃO",val:500},
+  {cod:"04.08.06.047-6",nome:"TENOPLASTIA OU ENXERTO DE TENDÃO ÚNICO",val:1000},
+  {cod:"04.08.06.048-4",nome:"TENORRAFIA ÚNICA EM TÚNEL OSTEO-FIBROSO",val:1000},
+  {cod:"04.08.01.018-5",nome:"FRATURA-LUXAÇÃO ACROMIO-CLAVICULAR",val:1000},
+  {cod:"04.08.02.039-3",nome:"FRATURA DA DIÁFISE DO ÚMERO",val:1000},
+  {cod:"04.08.05.051-9",nome:"FRATURA DA DIÁFISE DO FÊMUR",val:1500},
+  {cod:"04.08.01.017-7",nome:"FRATURA DO CORPO DE ESCAPULA",val:1000},
+  {cod:"04.08.04.024-6",nome:"AVULSÃO DE TUBEROSIDADES/ESPINHAS E CRISTA ILÍACA",val:1500},
+  {cod:"04.08.05.042-0",nome:"DESINSERÇÕES DAS ESPINHAS INTERCONDILARES/EPICONDILARES",val:1000},
+  {cod:"04.08.06.055-7",nome:"ARTRITE INFECCIOSA GRANDES E MÉDIAS ARTICULAÇÕES",val:500},
+  {cod:"04.08.06.056-5",nome:"ARTRITE INFEC. PEQUENAS ARTICULAÇÕES",val:1000},
+  {cod:"04.08.04.02",nome:"FRATURA DO ANEL PÉLVICO",val:1500},
+  {cod:"04.08.05.043-8",nome:"AVULSAO DO GRANDE E DO PEQUENO TROCANTER",val:1500},
+  {cod:"04.08.05.062-4",nome:"FRATURA SUPRACONDILEANA DO FÊMUR METÁFISE DISTAL",val:1500},
+  {cod:"04.08.02.033-4",nome:"EXTREMIDADE PROXIMAL DO UMERO",val:1500},
+  {cod:"04.08.02.034-2",nome:"FRATURA FALANGES DA MÃO COM FIXAÇÃO",val:1000},
+  {cod:"04.08.02.035-0",nome:"FRATURA EPICÔNDILO/EPITROCLEA DO ÚMERO",val:1000},
+  {cod:"04.08.05.045-4",nome:"FRATURA MEDIO PÉ",val:1000},
+  {cod:"04.08.02.036-9",nome:"CÔNDILO/TRÓCLEA/APOFISE CORONÓIDE DO ULNA/CABEÇA DO RÁDIO",val:1000},
+  {cod:"04.08.02.037-7",nome:"FRATURA DOS METACARPIANOS",val:1000},
+  {cod:"04.08.05.048-9",nome:"COLO DO FEMUR SINTESE",val:1500},
+  {cod:"04.08.02.038-5",nome:"SUPRACONDILIANA DO ÚMERO",val:1000},
+  {cod:"04.08.04.026-2",nome:"ANEL PÉLVICO ANTERO-POSTERIOR",val:1500},
+  {cod:"04.08.04.027-0",nome:"FRATURA-LUXAÇÃO DO COCCIX",val:1500},
+  {cod:"04.08.05.049-7",nome:"BIMALEOLAR/TRIMALEOLAR/FRATURA-LUXAÇÃO DO TORNOZELO",val:1500},
+  {cod:"04.08.05.050-0",nome:"FRATURA DA DIÁFISE DA TÍBIA",val:1500},
+  {cod:"04.08.02.040-7",nome:"FRATURA DA EXTREMIDADE DO ANTEBRAÇO",val:1000},
+  {cod:"04.08.05.052-7",nome:"FRATURA DA PATELA POR FIXAÇÃO INTERNA",val:1000},
+  {cod:"04.08.01.015-0",nome:"FRATURA DE CLAVÍCULA",val:1000},
+  {cod:"04.08.02.041-5",nome:"FRATURA DE PROX. ANTEBRAÇO",val:1000},
+  {cod:"04.08.05.063-2",nome:"FRATURA TRANSTROCANTERIANA",val:1500},
+  {cod:"04.08.02.042-3",nome:"DIAFISARIA DE AMBOS OS OSSOS DO ANTEBRAÇO C/SINTESE",val:1000},
+  {cod:"04.08.02.043-1",nome:"FRATURA DIAFISARIA ÚNICA ANTEBRAÇO",val:1000},
+  {cod:"04.08.05.053-5",nome:"FRATURA DO CALCÂNEO",val:1500},
+  {cod:"04.08.01.016-9",nome:"COLO E CAVIDADE GLENOIDE DE ESCAPULA",val:1000},
+  {cod:"04.08.05.054-3",nome:"FRATURA DO PILÃO TIBIAL",val:1500},
+  {cod:"04.08.05.055-1",nome:"FRATURA DO PLANALTO TIBIAL",val:1500},
+  {cod:"04.08.05.056-0",nome:"FRATURA DO TALUS",val:1500},
+  {cod:"04.08.05.057-8",nome:"FRATURA DO TORNOZELO UNIMALEOLAR",val:1500},
+  {cod:"04.08.05.058-6",nome:"DOS CONDILOS DO FEMUR",val:1500},
+  {cod:"04.08.05.059-4",nome:"FRATURA LESÃO FISARIA JOELHO",val:1500},
+  {cod:"04.08.05.060-8",nome:"FRATURA LESÃO FISÁRIA DISTAL DE TÍBIA",val:1500},
+  {cod:"04.08.02.044-0",nome:"FRATURA LESÃO FISARIA ANTEBRAÇO",val:1000},
+  {cod:"04.08.05.061-6",nome:"FRATURA SUBTROCANTERIANA",val:1500},
+  {cod:"04.08.06.059-0",nome:"PSA OSSOS LONGOS",val:1000},
+  {cod:"04.08.02.045-8",nome:"GALEAZZI/MONTEGGIA/ESSEX-LOPRESTI",val:1000},
+  {cod:"04.08.05.046-2",nome:"FRATURA/FISARIA METATARSIANOS",val:1000},
+  {cod:"04.08.05.047-0",nome:"FRATURA/FISARIA PODODACTILOS",val:1000},
+  {cod:"04.08.02.046-6",nome:"FRATURAS OSSOS DO CARPO",val:500},
+  {cod:"04.08.06.061-1",nome:"INFECÇÃO EM ARTROPLASTIA MÉDIAS/PEQUENAS ARTICULAÇÕES",val:1000},
+  {cod:"04.08.06.062-0",nome:"INFECÇÃO PÓS ARTROPLASTIA",val:1000},
+  {cod:"04.08.05.066-7",nome:"LESÃO AGUDA LIGAMENTAR JOELHO/TORNOZELO",val:1000},
+  {cod:"04.08.02.048-2",nome:"LIGAMENTAR MEMBRO SUPERIOR COTOVELO/PUNHO",val:1000},
+  {cod:"04.08.02.049-0",nome:"LESÃO DA MM INTRÍNSECA DA MÃO",val:500},
+  {cod:"04.13.04.017-8",nome:"LESÕES EXTENSAS COM PERDA DE SUBSTANCIA CUTÂNEA",val:1000},
+  {cod:"04.08.02.051-2",nome:"FRATURA-LUXAÇÃO CARPO-METACARPIANA",val:500},
+  {cod:"04.08.02.052-0",nome:"FRATURA-LUXACAO DOS OSSOS DO CARPO",val:500},
+  {cod:"04.08.02.053-9",nome:"FRATURA-LUXAÇÃO METACARPO-FALANGIANA",val:500},
+  {cod:"04.08.04.033-5",nome:"LUXAÇÃO COXO-FEMORAL TRAUMATICA/POS-ARTROPLASTIA",val:1500},
+  {cod:"04.08.02.054-7",nome:"FRATURA-LUXAÇÃO DO COTOVELO",val:1000},
+  {cod:"04.08.01.021-5",nome:"LUXACAO RECIDIVANTE ESCAPULO-UMERAL",val:1000},
+  {cod:"04.08.01.019-3",nome:"FRATURA-LUXAÇÃO ESCAPULO-UMERAL AGUDA",val:1000},
+  {cod:"04.08.05.069-1",nome:"FRATURA-LUXAÇÃO METATARSO-FALANGIANA/INTER-FALANGIANA",val:500},
+  {cod:"04.08.05.068-3",nome:"FRATURA-LUXAÇÃO AO NÍVEL DO JOELHO",val:1500},
+  {cod:"04.08.05.070-5",nome:"FRATURA-LUXAÇÃO SUBTALAR E INTRA-TARSICA",val:500},
+  {cod:"04.08.05.071-3",nome:"FRATURA-LUXAÇÃO TARSO-METATARSICA",val:1000},
+  {cod:"04.08.06.063-8",nome:"FRATURA-LUXAÇÃO METATARSO INTER-FALANGEANA",val:500},
+  {cod:"04.08.01.020-7",nome:"FRATURA-LUXAÇÃO ESTERNO-CLAVICULAR",val:1500},
+  {cod:"04.08.02.061-0",nome:"CAPSULO-TENO-LIGAMENTAR NA MÃO",val:1000},
+  {cod:"04.08.06.068-9",nome:"ROTURA DO APARELHO EXTENSOR DO DEDO",val:500},
+  {cod:"04.08.05.089-6",nome:"ROTURA DO MENISCO COM MENISCECTOMIA PARCIA/TOTAL",val:500},
+  {cod:"04.08.06.057-3",nome:"DEDO EM MARTELO/EM GARRA MÃO E PÉ",val:500}
+];
+
+let sel=[], cirurgias=JSON.parse(localStorage.getItem('cir_israel')||'[]'), sheetsURL=localStorage.getItem('sheets_url')||'';
+
+const fmt=v=>v||v===0?'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
+const fmtD=s=>{if(!s)return'—';const[y,m,d]=s.split('-');return`${d}/${m}/${y}`;};
+const norm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+
+function filtrar(){
+  const q=norm(document.getElementById('psearch').value.trim());
+  const dd=document.getElementById('pdd');
+  if(!q){dd.classList.remove('open');return;}
+  const res=PROCS.filter(p=>norm(p.nome).includes(q)||p.cod.includes(q)).slice(0,25);
+  dd.innerHTML=res.length
+    ?res.map(p=>`<div class="di" onclick="addProc('${p.cod}')"><div class="di-cod">${p.cod}</div><div class="di-nom">${p.nome}</div>${p.val?`<div class="di-val">${fmt(p.val)}</div>`:''}</div>`).join('')
+    :'<div class="di" style="color:var(--text3)">Nenhum resultado</div>';
+  dd.classList.add('open');
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.sw'))document.getElementById('pdd').classList.remove('open');});
+
+function addProc(cod){
+  if(sel.find(p=>p.cod===cod)){toast('Já adicionado',true);return;}
+  const p=PROCS.find(x=>x.cod===cod);
+  if(!p)return;
+  sel.push({...p});
+  document.getElementById('psearch').value='';
+  document.getElementById('pdd').classList.remove('open');
+  renderProcs();
+}
+function rmProc(cod){sel=sel.filter(p=>p.cod!==cod);renderProcs();}
+function renderProcs(){
+  const pl=document.getElementById('pl'),tr=document.getElementById('trow');
+  if(!sel.length){pl.innerHTML='';tr.style.display='none';return;}
+  pl.innerHTML=sel.map(p=>`<div class="pi"><div class="pi-info"><div class="pi-cod">${p.cod}</div><div class="pi-nom">${p.nome}</div><div class="pi-val">${fmt(p.val)}</div></div><button class="pi-rm" onclick="rmProc('${p.cod}')"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>`).join('');
+  document.getElementById('tval').textContent=fmt(sel.reduce((s,p)=>s+(p.val||0),0));
+  tr.style.display='flex';
+}
+
+async function salvar(){
+  const data=document.getElementById('f-data').value;
+  const pac=document.getElementById('f-pac').value.trim();
+  if(!data){toast('Informe a data',true);return;}
+  if(!pac){toast('Informe o paciente',true);return;}
+  if(!sel.length){toast('Adicione ao menos um procedimento',true);return;}
+  document.getElementById('btn-salvar').disabled=true;
+  const cir={id:Date.now(),data,paciente:pac,medico:document.getElementById('f-med').value.trim(),convenio:document.getElementById('f-conv').value.trim(),prontuario:document.getElementById('f-pron').value.trim(),obs:document.getElementById('f-obs').value.trim(),procs:[...sel],total:sel.reduce((s,p)=>s+(p.val||0),0),synced:false};
+  cirurgias.unshift(cir);
+  salvarLocal();
+  toast('Salvo localmente!');
+  limpar();
+  renderSidebar();
+  if(sheetsURL){
+    const ok=await enviarSheets(cir);
+    if(ok){cir.synced=true;salvarLocal();renderSidebar();toast('Sincronizado com o Sheets!');}
+    else toast('Salvo local. Sheets indisponível — use "Sincronizar pendentes" depois.','w');
+  }
+  atualizarBadge();
+  document.getElementById('btn-salvar').disabled=false;
+}
+
+function enviarSheets(cir){
+  return new Promise(resolve=>{
+    if(!sheetsURL){resolve(false);return;}
+    const ifr=document.querySelector('iframe[name="sheets-iframe"]');
+    const f=document.createElement('form');
+    f.method='POST'; f.action=sheetsURL; f.target='sheets-iframe';
+    f.style.display='none';
+    const inp=document.createElement('input');
+    inp.type='hidden'; inp.name='payload'; inp.value=JSON.stringify(cir);
+    f.appendChild(inp);
+    document.body.appendChild(f);
+    let done=false;
+    const onload=()=>{if(done)return;done=true;f.remove();resolve(true);};
+    ifr.addEventListener('load',onload,{once:true});
+    setTimeout(()=>{if(done)return;done=true;f.remove();resolve(false);},8000);
+    f.submit();
+  });
+}
+
+async function syncPend(){
+  if(!sheetsURL){toast('Configure o Sheets primeiro',true);return;}
+  const pend=cirurgias.filter(c=>!c.synced);
+  if(!pend.length){toast('Nenhum pendente!');return;}
+  toast('Sincronizando '+pend.length+' registro(s)…','w');
+  let ok=0;
+  for(const c of pend){const r=await enviarSheets(c);if(r){c.synced=true;ok++;}}
+  salvarLocal();renderSidebar();atualizarBadge();
+  toast(ok+'/'+pend.length+' sincronizado(s)');
+}
+
+function salvarLocal(){localStorage.setItem('cir_israel',JSON.stringify(cirurgias));}
+
+function limpar(){
+  ['f-data','f-conv','f-pron','f-obs'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-pac').value='';
+  document.getElementById('f-med').value='Dr. Israel Prebianca';
+  document.getElementById('f-data').valueAsDate=new Date();
+  document.getElementById('psearch').value='';
+  sel=[];renderProcs();
+}
+
+function deletar(id){
+  if(!confirm('Excluir esta cirurgia?'))return;
+  cirurgias=cirurgias.filter(c=>c.id!==id);
+  salvarLocal();renderSidebar();renderHistTbl();atualizarBadge();
+}
+
+function renderSidebar(){
+  const sl=document.getElementById('slist');
+  document.getElementById('scnt').textContent=cirurgias.length;
+  const st=document.getElementById('stot');
+  if(!cirurgias.length){sl.innerHTML='<div class="sempty"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Nenhuma cirurgia ainda.</div>';st.style.display='none';return;}
+  document.getElementById('stot-v').textContent=fmt(cirurgias.reduce((s,c)=>s+(c.total||0),0));
+  st.style.display='flex';
+  sl.innerHTML=cirurgias.map(c=>`<div class="hi"><div class="hi-date">${fmtD(c.data)}${c.convenio?' · '+c.convenio:''}</div><div class="hi-pat">${c.paciente}</div><div class="hi-pr">${c.procs.length} procedimento${c.procs.length>1?'s':''}</div><div class="hi-foot"><span class="hi-val">${fmt(c.total)}</span><span class="hi-sync">${c.synced?'<span class="sy">✓ Sheets</span>':'<span class="lo">⚠ Local</span>'}</span><button class="hd" onclick="deletar(${c.id})"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`).join('');
+}
+
+function renderHistTbl(){
+  const c=document.getElementById('histtbl');
+  if(!cirurgias.length){c.innerHTML='<div class="sempty" style="padding:1.5rem">Nenhuma cirurgia registrada.</div>';return;}
+  let rows='';
+  cirurgias.forEach(cir=>{
+    const n=cir.procs.length;
+    cir.procs.forEach((p,i)=>{
+      rows+=`<tr>${i===0?`<td rowspan="${n}" style="vertical-align:middle;font-weight:600">${fmtD(cir.data)}</td>`:''}${i===0?`<td rowspan="${n}" style="vertical-align:middle">${cir.paciente}${cir.convenio?'<br><small style="color:var(--text3)">'+cir.convenio+'</small>':''}</td>`:''}
+      <td><span style="font-family:monospace;font-size:11px;color:var(--text3)">${p.cod}</span><br>${p.nome}</td>
+      <td><span class="badge bg">${fmt(p.val)}</span></td>
+      ${i===0?`<td rowspan="${n}" style="vertical-align:middle;font-weight:700;color:var(--ok)">${fmt(cir.total)}</td>`:''}
+      ${i===0?`<td rowspan="${n}" style="vertical-align:middle"><span class="badge ${cir.synced?'bg':'bw2'}">${cir.synced?'Sheets':'Local'}</span></td>`:''}
+      </tr>`;
+    });
+  });
+  c.innerHTML=`<div style="overflow-x:auto"><table class="htable"><thead><tr><th>Data</th><th>Paciente</th><th>Procedimento</th><th>Valor</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function exportExcel(){
+  if(!cirurgias.length){toast('Nenhuma cirurgia para exportar',true);return;}
+  const rows=[['Data','Paciente','Médico','Convênio','Prontuário','Código','Procedimento','Valor (R$)','Total (R$)','Observações','Status']];
+  cirurgias.forEach(c=>{c.procs.forEach((p,i)=>{rows.push([fmtD(c.data),c.paciente,c.medico,c.convenio||'',c.prontuario||'',p.cod,p.nome,p.val||'',i===0?c.total:'',i===0?c.obs||'':'',c.synced?'Sincronizado':'Local']);});});
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[12,28,22,16,12,20,55,12,14,28,14].map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Cirurgias');
+  XLSX.writeFile(wb,`Cirurgias_DrIsrael_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Excel exportado!');
+}
+
+function limparTudo(){
+  if(!confirm('Apagar TODOS os registros locais?'))return;
+  cirurgias=[];salvarLocal();renderSidebar();renderHistTbl();atualizarBadge();
+}
+
+function switchTab(t,btn){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-form').style.display=t==='form'?'block':'none';
+  document.getElementById('tab-hist').style.display=t==='hist'?'block':'none';
+  if(t==='hist')renderHistTbl();
+}
+
+function atualizarBadge(){
+  const b=document.getElementById('sync-badge'),t=document.getElementById('sync-txt'),p=document.getElementById('btn-pend');
+  const pend=cirurgias.filter(c=>!c.synced).length;
+  if(!sheetsURL){b.className='sbadge s-warn';t.textContent='Sheets não configurado';p.style.display='none';return;}
+  if(pend>0){b.className='sbadge s-err';t.textContent=pend+' pendente'+(pend>1?'s':'');p.style.display='flex';}
+  else{b.className='sbadge s-ok';t.textContent='Sheets OK';p.style.display='none';}
+}
+
+function abrirModal(){if(sheetsURL)document.getElementById('cfg-url').value=sheetsURL;document.getElementById('modal').classList.remove('hidden');}
+function fecharModal(){document.getElementById('modal').classList.add('hidden');}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))fecharModal();});
+
+function salvarCfg(){
+  const url=document.getElementById('cfg-url').value.trim();
+  if(!url.includes('script.google.com')){toast('URL inválida — deve ser do Google Apps Script',true);return;}
+  sheetsURL=url;localStorage.setItem('sheets_url',url);
+  fecharModal();atualizarBadge();
+  toast('Configuração salva!');
+  if(cirurgias.filter(c=>!c.synced).length)document.getElementById('btn-pend').style.display='flex';
+}
+
+async function testar(){
+  const url=document.getElementById('cfg-url').value.trim();
+  if(!url){toast('Cole a URL primeiro',true);return;}
+  const al=document.getElementById('alerta-conn');
+  al.innerHTML='<div class="alerta a-warn"><svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg><span>Testando conexão… (até 8 segundos)</span></div>';
+  const ifr=document.querySelector('iframe[name="sheets-iframe"]');
+  const f=document.createElement('form');
+  f.method='POST';f.action=url;f.target='sheets-iframe';f.style.display='none';
+  const inp=document.createElement('input');inp.type='hidden';inp.name='payload';
+  inp.value=JSON.stringify({id:0,data:'TESTE',paciente:'TESTE CONEXÃO',medico:'Dr. Israel',convenio:'',prontuario:'',obs:'Pode excluir esta linha de teste',procs:[{cod:'TESTE',nome:'Linha de teste — pode excluir',val:0}],total:0,synced:false});
+  f.appendChild(inp);document.body.appendChild(f);
+  let done=false;
+  ifr.addEventListener('load',()=>{
+    if(done)return;done=true;f.remove();
+    al.innerHTML='<div class="alerta a-ok"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Conexão bem-sucedida!</strong> Uma linha de teste foi inserida na planilha. Clique em Salvar para confirmar.</span></div>';
+  },{once:true});
+  setTimeout(()=>{if(done)return;done=true;f.remove();al.innerHTML='<div class="alerta a-err"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><div><strong>Timeout — sem resposta em 8 segundos.</strong> Verifique: (1) a URL está correta e termina em <code>/exec</code>? (2) Em "Quem tem acesso" está "Qualquer pessoa"? (3) Você criou uma <em>nova</em> implantação após colar o código novo?</div></div>';},8000);
+  f.submit();
+}
+
+function copiarCodigo(){
+  const txt=document.getElementById('appsscript-code').innerText;
+  navigator.clipboard.writeText(txt).then(()=>toast('Código copiado!')).catch(()=>toast('Selecione e copie manualmente',true));
+}
+
+let _toastT;
+function toast(msg,tipo){
+  const el=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  el.className='toast'+(tipo===true?' err':tipo==='w'?' wrn':'');
+  clearTimeout(_toastT);
+  setTimeout(()=>el.classList.add('show'),10);
+  _toastT=setTimeout(()=>el.classList.remove('show'),3200);
+}
+
+document.getElementById('f-data').valueAsDate=new Date();
+renderSidebar();
+atualizarBadge();
+</script>
+</body>
+</html>
