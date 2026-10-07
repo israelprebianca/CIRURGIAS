@@ -236,7 +236,25 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent); box-shadow
 
   <div id="tab-hist" style="display:none">
     <div class="card">
-      <div class="ctitle"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Todas as cirurgias</div>
+      <div class="ctitle"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Filtrar por período</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem">
+        <div class="field" style="margin:0"><label>De</label><input type="date" id="f-de"></div>
+        <div class="field" style="margin:0"><label>Até</label><input type="date" id="f-ate"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn bp" style="font-size:12px;padding:6px 12px" onclick="filtrarHist()">Filtrar</button>
+        <button class="btn bo" style="font-size:12px;padding:6px 12px" onclick="limparFiltro()">Limpar</button>
+        <button class="btn bs" style="font-size:12px;padding:6px 12px" onclick="exportFiltrado()">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          Exportar filtrado (Excel)
+        </button>
+      </div>
+      <div id="filtro-info" style="display:none;margin-top:.75rem;padding:8px 12px;background:var(--ok-bg);border:1px solid var(--ok-border);border-radius:var(--rs);font-size:12px;color:var(--ok)">
+        <span id="filtro-txt"></span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="ctitle"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Cirurgias</div>
       <div id="histtbl"></div>
     </div>
   </div>
@@ -599,11 +617,39 @@ function renderSidebar(){
   sl.innerHTML=cirurgias.map(c=>`<div class="hi"><div class="hi-date">${fmtD(c.data)}${c.convenio?' · '+c.convenio:''}</div><div class="hi-pat">${c.paciente}</div><div class="hi-pr">${c.procs.length} procedimento${c.procs.length>1?'s':''}</div><div class="hi-foot"><span class="hi-val">${fmt(c.total)}</span><span class="hi-sync">${c.synced?'<span class="sy">✓ Sheets</span>':'<span class="lo">⚠ Local</span>'}</span><button class="hd" onclick="deletar(${c.id})"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg></button></div></div>`).join('');
 }
 
+let cirFiltradas=null;
+
+function filtrarHist(){
+  const de=document.getElementById('f-de').value;
+  const ate=document.getElementById('f-ate').value;
+  if(!de&&!ate){toast('Informe ao menos uma data',true);return;}
+  cirFiltradas=cirurgias.filter(c=>{
+    if(de&&c.data<de)return false;
+    if(ate&&c.data>ate)return false;
+    return true;
+  });
+  const info=document.getElementById('filtro-info');
+  const txt=document.getElementById('filtro-txt');
+  const total=cirFiltradas.reduce((s,c)=>s+(c.total||0),0);
+  txt.textContent=`${cirFiltradas.length} cirurgia${cirFiltradas.length!==1?'s':''} encontrada${cirFiltradas.length!==1?'s':''} no período — Total: ${fmt(total)}`;
+  info.style.display='block';
+  renderHistTbl();
+}
+
+function limparFiltro(){
+  cirFiltradas=null;
+  document.getElementById('f-de').value='';
+  document.getElementById('f-ate').value='';
+  document.getElementById('filtro-info').style.display='none';
+  renderHistTbl();
+}
+
 function renderHistTbl(){
   const c=document.getElementById('histtbl');
-  if(!cirurgias.length){c.innerHTML='<div class="sempty" style="padding:1.5rem">Nenhuma cirurgia registrada.</div>';return;}
+  const lista=cirFiltradas!==null?cirFiltradas:cirurgias;
+  if(!lista.length){c.innerHTML='<div class="sempty" style="padding:1.5rem">'+(cirFiltradas!==null?'Nenhuma cirurgia no período selecionado.':'Nenhuma cirurgia registrada.')+'</div>';return;}
   let rows='';
-  cirurgias.forEach(cir=>{
+  lista.forEach(cir=>{
     const n=cir.procs.length;
     cir.procs.forEach((p,i)=>{
       rows+=`<tr>${i===0?`<td rowspan="${n}" style="vertical-align:middle;font-weight:600">${fmtD(cir.data)}</td>`:''}${i===0?`<td rowspan="${n}" style="vertical-align:middle">${cir.paciente}${cir.convenio?'<br><small style="color:var(--text3)">'+cir.convenio+'</small>':''}</td>`:''}
@@ -617,17 +663,23 @@ function renderHistTbl(){
   c.innerHTML=`<div style="overflow-x:auto"><table class="htable"><thead><tr><th>Data</th><th>Paciente</th><th>Procedimento</th><th>Valor</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
-function exportExcel(){
-  if(!cirurgias.length){toast('Nenhuma cirurgia para exportar',true);return;}
+function exportFiltrado(){
+  const lista=cirFiltradas!==null?cirFiltradas:cirurgias;
+  if(!lista.length){toast('Nenhuma cirurgia para exportar',true);return;}
+  const de=document.getElementById('f-de').value;
+  const ate=document.getElementById('f-ate').value;
+  const sufixo=de||ate?`_${de||'inicio'}_a_${ate||'fim'}`:'';
   const rows=[['Data','Paciente','Médico','Convênio','Prontuário','Código','Procedimento','Valor (R$)','Total (R$)','Observações','Status']];
-  cirurgias.forEach(c=>{c.procs.forEach((p,i)=>{rows.push([fmtD(c.data),c.paciente,c.medico,c.convenio||'',c.prontuario||'',p.cod,p.nome,p.val||'',i===0?c.total:'',i===0?c.obs||'':'',c.synced?'Sincronizado':'Local']);});});
+  lista.forEach(c=>{c.procs.forEach((p,i)=>{rows.push([fmtD(c.data),c.paciente,c.medico,c.convenio||'',c.prontuario||'',p.cod,p.nome,p.val||'',i===0?c.total:'',i===0?c.obs||'':'',c.synced?'Sincronizado':'Local']);});});
   const ws=XLSX.utils.aoa_to_sheet(rows);
   ws['!cols']=[12,28,22,16,12,20,55,12,14,28,14].map(w=>({wch:w}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,'Cirurgias');
-  XLSX.writeFile(wb,`Cirurgias_DrIsrael_${new Date().toISOString().slice(0,10)}.xlsx`);
+  XLSX.writeFile(wb,`Cirurgias_DrIsrael${sufixo}_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Excel exportado!');
 }
+
+function exportExcel(){exportFiltrado();}
 
 function limparTudo(){
   if(!confirm('Apagar TODOS os registros locais?'))return;
