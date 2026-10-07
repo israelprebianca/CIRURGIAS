@@ -253,6 +253,19 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent); box-shadow
         <span id="filtro-txt"></span>
       </div>
     </div>
+    <div class="card" style="background:var(--accent-bg);border-color:var(--accent)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--accent-text)">📡 Dados do Google Sheets</div>
+          <div style="font-size:12px;color:var(--accent-text);margin-top:2px">Carrega todas as cirurgias da planilha — funciona em qualquer aparelho</div>
+          <div id="sheets-info" style="display:none;font-size:12px;color:var(--ok);margin-top:4px;font-weight:500"></div>
+        </div>
+        <button id="btn-buscar-sheets" class="btn bp" style="font-size:12px;padding:7px 14px;white-space:nowrap" onclick="buscarDoSheets()">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;display:inline-block;vertical-align:middle;margin-right:4px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Atualizar do Sheets
+        </button>
+      </div>
+    </div>
     <div class="card">
       <div class="ctitle"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Cirurgias</div>
       <div id="histtbl"></div>
@@ -618,12 +631,65 @@ function renderSidebar(){
 }
 
 let cirFiltradas=null;
+let dadosSheets=null; // dados carregados da planilha (null = não carregado ainda)
+
+async function buscarDoSheets(){
+  if(!sheetsURL){toast('Configure o Sheets primeiro',true);return;}
+  const btn=document.getElementById('btn-buscar-sheets');
+  if(btn){btn.disabled=true;btn.textContent='Carregando...';}
+  try{
+    const resp=await fetch(sheetsURL,{method:'GET'});
+    const json=await resp.json();
+    if(!json.ok){throw new Error(json.erro||'Erro desconhecido');}
+    // Converte linhas da planilha para formato do app
+    dadosSheets=[];
+    const grupos={};
+    json.rows.forEach(r=>{
+      const chave=r['Data']+'|'+r['Paciente']+'|'+r['Enviado em'];
+      if(!grupos[chave]){
+        grupos[chave]={
+          id: Math.random(),
+          data: r['Data']?String(r['Data']).slice(0,10):'',
+          paciente: r['Paciente']||'',
+          medico: r['Médico']||'',
+          convenio: r['Convênio']||'',
+          prontuario: r['Prontuário']||'',
+          obs: r['Observações']||'',
+          total: Number(r['Total'])||0,
+          synced: true,
+          procs:[]
+        };
+        dadosSheets.push(grupos[chave]);
+      }
+      grupos[chave].procs.push({
+        cod: r['Código']||'',
+        nome: r['Procedimento']||'',
+        val: Number(r['Valor'])||0
+      });
+    });
+    // ordena do mais recente
+    dadosSheets.sort((a,b)=>b.data.localeCompare(a.data));
+    const info=document.getElementById('sheets-info');
+    if(info){info.style.display='block';info.textContent=`${dadosSheets.length} cirurgia(s) carregada(s) do Sheets`;}
+    cirFiltradas=null;
+    document.getElementById('f-de').value='';
+    document.getElementById('f-ate').value='';
+    document.getElementById('filtro-info').style.display='none';
+    renderHistTbl();
+    toast('Dados carregados do Sheets!');
+  }catch(err){
+    toast('Erro ao buscar Sheets: '+err.message,true);
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Atualizar do Sheets';}
+  }
+}
 
 function filtrarHist(){
   const de=document.getElementById('f-de').value;
   const ate=document.getElementById('f-ate').value;
   if(!de&&!ate){toast('Informe ao menos uma data',true);return;}
-  cirFiltradas=cirurgias.filter(c=>{
+  const fonte=dadosSheets!==null?dadosSheets:cirurgias;
+  cirFiltradas=fonte.filter(c=>{
     if(de&&c.data<de)return false;
     if(ate&&c.data>ate)return false;
     return true;
@@ -646,8 +712,14 @@ function limparFiltro(){
 
 function renderHistTbl(){
   const c=document.getElementById('histtbl');
-  const lista=cirFiltradas!==null?cirFiltradas:cirurgias;
-  if(!lista.length){c.innerHTML='<div class="sempty" style="padding:1.5rem">'+(cirFiltradas!==null?'Nenhuma cirurgia no período selecionado.':'Nenhuma cirurgia registrada.')+'</div>';return;}
+  const fonte=dadosSheets!==null?dadosSheets:cirurgias;
+  const lista=cirFiltradas!==null?cirFiltradas:fonte;
+  if(!lista.length){
+    const msg=cirFiltradas!==null?'Nenhuma cirurgia no período selecionado.'
+      :dadosSheets!==null?'Nenhuma cirurgia na planilha.'
+      :'Nenhuma cirurgia local. Clique em "Atualizar do Sheets" para carregar da planilha.';
+    c.innerHTML=`<div class="sempty" style="padding:1.5rem">${msg}</div>`;return;
+  }
   let rows='';
   lista.forEach(cir=>{
     const n=cir.procs.length;
