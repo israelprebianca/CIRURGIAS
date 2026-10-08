@@ -633,56 +633,78 @@ function renderSidebar(){
 let cirFiltradas=null;
 let dadosSheets=null; // dados carregados da planilha (null = não carregado ainda)
 
-async function buscarDoSheets(){
+function buscarDoSheets(){
   if(!sheetsURL){toast('Configure o Sheets primeiro',true);return;}
   const btn=document.getElementById('btn-buscar-sheets');
   if(btn){btn.disabled=true;btn.textContent='Carregando...';}
-  try{
-    const resp=await fetch(sheetsURL,{method:'GET'});
-    if(!resp.ok)throw new Error('HTTP '+resp.status);
-    const json=await resp.json();
-    if(!json.ok){throw new Error(json.erro||'Erro desconhecido');}
-    // Converte linhas da planilha para formato do app
-    dadosSheets=[];
-    const grupos={};
-    json.rows.forEach(r=>{
-      const chave=r['Data']+'|'+r['Paciente']+'|'+r['Enviado em'];
-      if(!grupos[chave]){
-        grupos[chave]={
-          id: Math.random(),
-          data: r['Data']?String(r['Data']).slice(0,10):'',
-          paciente: r['Paciente']||'',
-          medico: r['Médico']||'',
-          convenio: r['Convênio']||'',
-          prontuario: r['Prontuário']||'',
-          obs: r['Observações']||'',
-          total: Number(r['Total'])||0,
-          synced: true,
-          procs:[]
-        };
-        dadosSheets.push(grupos[chave]);
-      }
-      grupos[chave].procs.push({
-        cod: r['Código']||'',
-        nome: r['Procedimento']||'',
-        val: Number(r['Valor'])||0
-      });
-    });
-    // ordena do mais recente
-    dadosSheets.sort((a,b)=>b.data.localeCompare(a.data));
-    const info=document.getElementById('sheets-info');
-    if(info){info.style.display='block';info.textContent=`${dadosSheets.length} cirurgia(s) carregada(s) do Sheets`;}
-    cirFiltradas=null;
-    document.getElementById('f-de').value='';
-    document.getElementById('f-ate').value='';
-    document.getElementById('filtro-info').style.display='none';
-    renderHistTbl();
-    toast('Dados carregados do Sheets!');
-  }catch(err){
-    toast('Erro ao buscar Sheets: '+err.message,true);
-  }finally{
+
+  // Remove script JSONP anterior se existir
+  const old=document.getElementById('jsonp-sheets');
+  if(old)old.remove();
+  if(window._sheetsCallback)delete window._sheetsCallback;
+
+  // Timeout de 15s
+  const timer=setTimeout(()=>{
+    delete window._sheetsCallback;
     if(btn){btn.disabled=false;btn.textContent='Atualizar do Sheets';}
-  }
+    toast('Tempo esgotado ao buscar Sheets',true);
+  },15000);
+
+  window._sheetsCallback=function(json){
+    clearTimeout(timer);
+    delete window._sheetsCallback;
+    if(btn){btn.disabled=false;btn.textContent='Atualizar do Sheets';}
+    try{
+      if(!json.ok){throw new Error(json.erro||'Erro desconhecido');}
+      dadosSheets=[];
+      const grupos={};
+      json.rows.forEach(r=>{
+        const chave=r['Data']+'|'+r['Paciente']+'|'+r['Enviado em'];
+        if(!grupos[chave]){
+          grupos[chave]={
+            id: Math.random(),
+            data: r['Data']?String(r['Data']).slice(0,10):'',
+            paciente: r['Paciente']||'',
+            medico: r['Médico']||'',
+            convenio: r['Convênio']||'',
+            prontuario: r['Prontuário']||'',
+            obs: r['Observações']||'',
+            total: Number(r['Total'])||0,
+            synced: true,
+            procs:[]
+          };
+          dadosSheets.push(grupos[chave]);
+        }
+        grupos[chave].procs.push({
+          cod: r['Código']||'',
+          nome: r['Procedimento']||'',
+          val: Number(r['Valor'])||0
+        });
+      });
+      dadosSheets.sort((a,b)=>b.data.localeCompare(a.data));
+      const info=document.getElementById('sheets-info');
+      if(info){info.style.display='block';info.textContent=`${dadosSheets.length} cirurgia(s) carregada(s) do Sheets`;}
+      cirFiltradas=null;
+      document.getElementById('f-de').value='';
+      document.getElementById('f-ate').value='';
+      document.getElementById('filtro-info').style.display='none';
+      renderHistTbl();
+      toast('Dados carregados do Sheets!');
+    }catch(err){
+      toast('Erro ao processar dados: '+err.message,true);
+    }
+  };
+
+  const s=document.createElement('script');
+  s.id='jsonp-sheets';
+  s.onerror=function(){
+    clearTimeout(timer);
+    delete window._sheetsCallback;
+    if(btn){btn.disabled=false;btn.textContent='Atualizar do Sheets';}
+    toast('Erro ao buscar Sheets. Verifique a URL.',true);
+  };
+  s.src=sheetsURL+'&callback=_sheetsCallback';
+  document.head.appendChild(s);
 }
 
 function filtrarHist(){
