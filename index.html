@@ -515,7 +515,9 @@ const PROCS=[
   {cod:"04.08.06.057-3",nome:"DEDO EM MARTELO/EM GARRA MÃO E PÉ",val:500}
 ];
 
-let sel=[], cirurgias=JSON.parse(localStorage.getItem('cir_israel')||'[]'), sheetsURL=localStorage.getItem('sheets_url')||'';
+let sel=[], cirurgias=JSON.parse(localStorage.getItem('cir_israel')||'[]');
+const SHEETS_URL_PADRAO='https://script.google.com/macros/s/AKfycbw1JPyxNMp-4-Vc9VnGi9hXBygZMgw5-nZF3wlgVxNuVpLa3-YrKW6V6vBgE_bmOFTq/exec';
+let sheetsURL=localStorage.getItem('sheets_url')||SHEETS_URL_PADRAO;
 
 const fmt=v=>v||v===0?'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
 const fmtD=s=>{if(!s)return'—';const[y,m,d]=s.split('-');return`${d}/${m}/${y}`;};
