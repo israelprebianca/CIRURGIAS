@@ -638,8 +638,15 @@ async function buscarDoSheets(){
   const btn=document.getElementById('btn-buscar-sheets');
   if(btn){btn.disabled=true;btn.textContent='Carregando...';}
   try{
-    const resp=await fetch(sheetsURL,{method:'GET'});
-    const json=await resp.json();
+    const json=await new Promise((resolve,reject)=>{
+      const cb='_sheetsCb'+Date.now();
+      const script=document.createElement('script');
+      const t=setTimeout(()=>{delete window[cb];script.remove();reject(new Error('Timeout'));},15000);
+      window[cb]=data=>{clearTimeout(t);delete window[cb];script.remove();resolve(data);};
+      script.onerror=()=>{clearTimeout(t);delete window[cb];script.remove();reject(new Error('Falha na conexão'));};
+      script.src=sheetsURL+'?callback='+cb;
+      document.head.appendChild(script);
+    });
     if(!json.ok){throw new Error(json.erro||'Erro desconhecido');}
     // Converte linhas da planilha para formato do app
     dadosSheets=[];
