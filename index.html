@@ -638,19 +638,9 @@ async function buscarDoSheets(){
   const btn=document.getElementById('btn-buscar-sheets');
   if(btn){btn.disabled=true;btn.textContent='Carregando...';}
   try{
-    // Tenta fetch direto primeiro, depois proxy como fallback
-    let json=null;
-    try{
-      const resp=await fetch(sheetsURL,{method:'GET',mode:'cors'});
-      if(resp.ok)json=await resp.json();
-    }catch(_){}
-    if(!json){
-      const proxyURL='https://api.allorigins.win/get?url='+encodeURIComponent(sheetsURL);
-      const resp2=await fetch(proxyURL);
-      if(!resp2.ok)throw new Error('Falha na conexão');
-      const data=await resp2.json();
-      json=JSON.parse(data.contents);
-    }
+    const resp=await fetch(sheetsURL,{method:'GET'});
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const json=await resp.json();
     if(!json.ok){throw new Error(json.erro||'Erro desconhecido');}
     // Converte linhas da planilha para formato do app
     dadosSheets=[];
