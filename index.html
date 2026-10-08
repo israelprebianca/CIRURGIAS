@@ -699,16 +699,35 @@ function buscarDoSheets(){
     }
   };
 
-  const s=document.createElement('script');
-  s.id='jsonp-sheets';
-  s.onerror=function(){
-    clearTimeout(timer);
-    delete window._sheetsCallback;
-    if(btn){btn.disabled=false;btn.textContent='Atualizar do Sheets';}
-    toast('Erro ao buscar Sheets. Verifique a URL.',true);
-  };
-  s.src=sheetsURL+'&callback=_sheetsCallback';
-  document.head.appendChild(s);
+  // Tenta fetch direto primeiro, depois JSONP como fallback
+  fetch(sheetsURL+'&callback=_sheetsCallback')
+    .then(r=>r.text())
+    .then(txt=>{
+      // Extrai JSON do JSONP: _sheetsCallback({...})
+      const match=txt.match(/^_sheetsCallback\(([\s\S]*)\)$/);
+      if(!match)throw new Error('Resposta inválida');
+      const json=JSON.parse(match[1]);
+      window._sheetsCallback(json);
+    })
+    .catch(()=>{
+      // Fallback: tenta fetch sem callback
+      fetch(sheetsURL)
+        .then(r=>r.json())
+        .then(json=>window._sheetsCallback(json))
+        .catch(()=>{
+          // Último recurso: JSONP via script tag
+          const s=document.createElement('script');
+          s.id='jsonp-sheets';
+          s.onerror=function(){
+            clearTimeout(timer);
+            delete window._sheetsCallback;
+            if(btn){btn.disabled=false;btn.textContent='Atualizar do Sheets';}
+            toast('Erro ao buscar Sheets. Verifique a URL.',true);
+          };
+          s.src=sheetsURL+'&callback=_sheetsCallback';
+          document.head.appendChild(s);
+        });
+    });
 }
 
 function filtrarHist(){
